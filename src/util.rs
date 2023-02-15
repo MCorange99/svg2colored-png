@@ -55,4 +55,7 @@ pub mod logger {
     pub fn info<S: Into<String> + std::fmt::Display>(info: S) {
         println!("{b}info{r}: {info}", r=color::NONE, b=color::FG_BLUE, info=info);
     }
+    pub fn warning<S: Into<String> + std::fmt::Display>(text: S) {
+        println!("{y}warn{r}: {text}", r=color::NONE, y=color::FG_YELLOW, text=text);
+    }
 }

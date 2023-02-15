@@ -12,6 +12,15 @@ You can install this in 3 ways:
  2) Download the prebuilt binaries from [here](https://github.com/MCorange99/svg2colored-png/releases/latest)
  3) Build `svg2colored-png` yourself. Instructions [here](#building)
 
+## Usage
+
+To convert some SVG files in the directory `in`
+to PNG in lets say black(#000000) and white(#ffffff) to the folder `out`, you should run this:
+
+```sh
+svg2colored-png -i ./in -o ./out -c
+```
+
 ## Building
 
 You will need one thing, rust, of course.

@@ -52,6 +52,11 @@ impl Renderer {
     }
 
     pub fn render(&self, path_in: PathBuf, out_dir: PathBuf) -> Result<(), ()> {
+
+        if path_in.clone().extension().unwrap().to_str().unwrap() != "svg" {
+            return Err(util::logger::warning(format!("File '{}' is not of SVG type", path_in.to_str().unwrap())));
+        }
+
         let svg_data = match std::fs::read_to_string(path_in.clone()) {
             Ok(d) => d,
             Err(_) => return Err(logger::error(&format!("File {} does not exist", path_in.clone().display())))
@@ -66,11 +71,25 @@ impl Renderer {
         opt.dpi = 200.0;
 
         for color in self.colors.clone() { 
+            let f_n = path_in.clone().file_name().unwrap().to_string_lossy().replace(".svg", ".png");
+            let p = out_dir
+                                .join(color.clone())
+                                .join(
+                                    f_n
+                                );
+            if p.exists() {
+                util::logger::warning(format!("File '{}' exists, skipping", p.to_str().unwrap()));
+                continue;
+            }
+            
             let color = color.replace("#", "");
             let svg_data_bytes = svg_data.replace("fill=\"currentColor\"", &format!("fill=\"#{}\"", color));
             let svg_data_bytes = svg_data_bytes.as_bytes();
             //fill="currentColor"
-            let mut tree = usvg::Tree::from_data(&svg_data_bytes, &opt).unwrap();
+            let mut tree = match usvg::Tree::from_data(&svg_data_bytes, &opt) {
+                Ok(v) => Ok(v),
+                Err(_) => Err(util::logger::error(format!("Failed to parse '{}'", path_in.display())))
+            }?;
             tree.convert_text(&self.fontdb);
     
     
@@ -83,12 +102,6 @@ impl Renderer {
                 pixmap.as_mut(),
             )
             .unwrap();
-            let f_n = path_in.clone().file_name().unwrap().to_string_lossy().replace(".svg", ".png");
-            let p = out_dir
-                                .join(color.clone())
-                                .join(
-                                    f_n
-                                );
             util::logger::info(format!("Rendering '{}'", p.display()));
             pixmap.save_png(p).unwrap();
 
