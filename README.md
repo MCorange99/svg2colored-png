@@ -18,8 +18,10 @@ To convert some SVG files in the directory `in`
 to PNG in lets say black(#000000) and white(#ffffff) to the folder `out`, you should run this:
 
 ```sh
-svg2colored-png -i ./in -o ./out -c
+svg2colored-png -i ./in -o ./out -c ffffff,000000
 ```
+
+And it will convert all svg files in `in/` to png files in `out/`
 
 ## Building
 
