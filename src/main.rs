@@ -25,7 +25,7 @@ mod renderer;
 #[derive(Parser, Debug, Clone)]
 #[command(name = "svg2colored-png")]
 #[command(author = "MCorange <mcorangecodes@gmail.com>")]
-#[command(version = "0.0.1")]
+#[command(version = "1.0.2")]
 #[command(about = "Converts svgs to multiple png's that differ in color", long_about = "Made by MCorange <mcorangecodes@gmail.com>")]
 pub struct Args {
     /// Input folder with the SVG's
