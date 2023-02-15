@@ -52,8 +52,7 @@ pub struct Args {
 
 
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     let args = Args::parse();
     
     let r = renderer::Renderer::new(args.clone())?;
