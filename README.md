@@ -8,7 +8,7 @@
 
 You can install this in 3 ways:
 
- 1) `cargo install svg2colored-png` (soon!)
+ 1) `cargo install svg2colored-png`
  2) Download the prebuilt binaries from [here](https://github.com/MCorange99/svg2colored-png/releases/latest)
  3) Build `svg2colored-png` yourself. Instructions [here](#building)
 
