@@ -1,0 +1,16 @@
+[package]
+name = "sv2colored-png"
+version = "1.0.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "4.1.4", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+eyre = "0.6.8"
+color-eyre = "0.6.2"
+usvg-text-layout = "0.29.0"
+usvg = "0.29.0"
+resvg = "0.29.0"
+tiny-skia = "0.8.3"
