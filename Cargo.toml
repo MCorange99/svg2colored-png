@@ -2,6 +2,14 @@
 name = "svg2colored-png"
 version = "1.0.1"
 edition = "2021"
+description = "An SVG to PNG converter"
+authors = ["MCorange <mcorangecodes@gmail.com>"]
+license = "GPL-3.0"
+readme = "README.md"
+homepage = "https://github.com/MCorange99/svg2colored-png"
+repository = "https://github.com/MCorange99/svg2colored-png"
+keywords = ["cli", "svg", "convert"]
+categories = ["command-line-utilities"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
