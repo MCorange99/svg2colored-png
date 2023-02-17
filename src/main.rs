@@ -36,9 +36,13 @@ pub struct Args {
     #[arg[long, short]]
     output_folder: PathBuf,
 
-    /// Comma seperated colors that will be used in HEX
+    /// Comma seperated colors that will be used in HEX Eg. 000000,ffffff
     #[arg[long, short, default_value_t = String::from("0d6efd,6c757d,198754,0dcaf0,ffc107,dc3545,f8f9fa,212529,ffffff,000000")]]
     colors: String,
+    
+    /// Comma seperated list of key value pairs of name:color Eg. black:000000,white:ffffff. This has priority over normal color list
+    #[arg[long, default_value_t = String::new()]]
+    colors_object: String,
 
     /// Width of the generated PNG's
     #[arg(long, default_value_t = 1024)]
@@ -70,7 +74,7 @@ fn main() -> Result<()> {
         if path.is_dir() {
             util::logger::info(&format!("Skipping folder '{}' since folder walking is not yet implemented", path.clone().display()));
         } else {
-            match r.render(path.clone(), args.output_folder.clone()){
+            match r.render(path.clone(), args.clone()){
                 Ok(_) => util::logger::info(&format!("Successfully rendered all colors of '{}'", path.clone().display())),
                 Err(_) => util::logger::error(&format!("Failed to render '{}'", path.clone().display()))
             };

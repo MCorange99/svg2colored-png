@@ -17,16 +17,17 @@
  */
 use std::path::PathBuf;
 use usvg_text_layout::{fontdb::{self, Database}, TreeTextToPath};
-use usvg::{self, Size};
+use usvg;
 use resvg;
 use tiny_skia;
 use color_eyre::Result;
 
-use crate::util::{logger, self};
+use crate::{util::{logger, self}, Args};
 
 pub struct Renderer {
     fontdb: Database,
     colors: Vec<String>,
+    colors_obj: Vec<Vec<String>>,
     size: (u32, u32)
 }
 
@@ -35,82 +36,135 @@ impl Renderer {
         let mut db = fontdb::Database::new();
         db.load_system_fonts();
 
+        
         let colors = args.colors.split(",").map(|s| {
             s.to_string()
         })
         .collect::<Vec<String>>();
+        
+        let colors_obj = if args.colors_object.is_empty() {
+            Self::init_folders(colors.clone(), args.clone())?;
+            Vec::new()
+        } else {
+            let colors_obj = args.colors_object.split(",").map(|s| {
+                s.to_string()
+            })
+            .collect::<Vec<String>>();
 
-        for color in colors.clone() {
-            std::fs::create_dir_all(args.output_folder.join(color))?;
-        }
+            let colors_obj = colors_obj.iter().map(|p| {
+                let s: Vec<&str> = p.split(":").collect();
+                vec![ s[0].to_string(), s[1].to_string() ]
+            }).collect::<Vec<Vec<String>>>();
+
+            let folders = colors_obj.iter().map(|v| {
+                v[0].clone()
+            }).collect::<Vec<String>>();
+            Self::init_folders(folders, args.clone())?;
+            colors_obj
+        };
 
         Ok(Self {
             fontdb: db,
-            colors: colors,
+            colors_obj,
+            colors,
             size: (args.width, args.height)
         })
     }
 
-    pub fn render(&self, path_in: PathBuf, out_dir: PathBuf) -> Result<(), ()> {
-        let ext = path_in.clone();
+    pub fn render(&self, fi: PathBuf, args: crate::Args) -> Result<(), ()> {
+        let ext = fi.clone();
         let ext = match ext.extension() {
             Some(e) => e,
-            None => return Err(util::logger::warning(format!("File '{}' is not of SVG type", path_in.clone().to_str().unwrap()))),
+            None => return Err(util::logger::warning(format!("File '{}' is not of SVG type", fi.clone().to_str().unwrap()))),
         };
+        
         if ext.to_str().unwrap() != "svg" {
-            return Err(util::logger::warning(format!("File '{}' is not of SVG type", path_in.clone().to_str().unwrap())));
+            return Err(util::logger::warning(format!("File '{}' is not of SVG type", fi.clone().to_str().unwrap())));
         }
 
-        let svg_data = match std::fs::read_to_string(path_in.clone()) {
-            Ok(d) => d,
-            Err(_) => return Err(logger::error(&format!("File {} does not exist", path_in.clone().display())))
-        };
+        if self.colors_obj.is_empty() {   
+            for color in self.colors.clone() { 
+                let fo = self.get_out_file(fi.clone(), color.clone(), args.clone());
+                self.render_one(fi.clone(), fo, color.clone())?;    
+                
+            }
+        } else {
+            for o in self.colors_obj.clone() { 
+                let color = &o[1];
+                let name = &o[0];
+                let fo = self.get_out_file(fi.clone(), name.clone(), args.clone());
+                self.render_one(fi.clone(), fo, color.clone())?;
+                
+            }
+        }
+
+        Ok(())
+    }
+
+
+    fn render_one(&self, fi: PathBuf, fo: PathBuf, color: String) -> Result<(), ()>{
+
+        if fo.exists() {
+            util::logger::warning(format!("File '{}' exists, skipping", fo.to_str().unwrap()));
+            return Ok(());
+        }
+
+        let svg = self.get_svg_data(fi.clone())?;
+        let svg = self.set_color(svg, color);
 
         let mut opt = usvg::Options::default();
         // Get file's absolute directory.
-        opt.resources_dir = std::fs::canonicalize(path_in.clone())
+        opt.resources_dir = std::fs::canonicalize(fi.clone())
             .ok()
             .and_then(|p| p.parent().map(|p| p.to_path_buf()));
-        opt.default_size = Size::new(1000.0, 1000.0).unwrap();
-        opt.dpi = 200.0;
 
-        for color in self.colors.clone() { 
-            let f_n = path_in.clone().file_name().unwrap().to_string_lossy().replace(".svg", ".png");
-            let p = out_dir
-                                .join(color.clone())
-                                .join(
-                                    f_n
-                                );
-            if p.exists() {
-                util::logger::warning(format!("File '{}' exists, skipping", p.to_str().unwrap()));
-                continue;
-            }
+        let mut tree = match usvg::Tree::from_data(svg.as_bytes(), &opt) {
+            Ok(v) => Ok(v),
+            Err(_) => Err(util::logger::error(format!("Failed to parse '{}'", fi.clone().display())))
+        }?;
+
+        tree.convert_text(&self.fontdb);
+
+        let mut pixmap = tiny_skia::Pixmap::new(self.size.0, self.size.1).unwrap();
+
+        util::logger::info(format!("Rendering '{}'", fo.display()));
             
-            let color = color.replace("#", "");
-            let svg_data_bytes = svg_data.replace("fill=\"currentColor\"", &format!("fill=\"#{}\"", color));
-            let svg_data_bytes = svg_data_bytes.as_bytes();
-            //fill="currentColor"
-            let mut tree = match usvg::Tree::from_data(&svg_data_bytes, &opt) {
-                Ok(v) => Ok(v),
-                Err(_) => Err(util::logger::error(format!("Failed to parse '{}'", path_in.clone().display())))
-            }?;
-            tree.convert_text(&self.fontdb);
-    
-    
-            let mut pixmap = tiny_skia::Pixmap::new(self.size.0, self.size.1).unwrap();
-            // let mut pixmap = tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height()).unwrap();
-            resvg::render(
-                &tree,
-                usvg::FitTo::Size(self.size.0, self.size.1),
-                tiny_skia::Transform::default(),
-                pixmap.as_mut(),
-            )
-            .unwrap();
-            util::logger::info(format!("Rendering '{}'", p.display()));
-            pixmap.save_png(p).unwrap();
+        //? maybe handle this and possibly throw error if its none
+        let _ = resvg::render(
+            &tree,
+            usvg::FitTo::Size(self.size.0, self.size.1),
+            tiny_skia::Transform::default(),
+            pixmap.as_mut(),
+        );
 
+        pixmap.save_png(fo).unwrap();
+
+        Ok(())
+    }
+
+    fn get_svg_data(&self, fi: PathBuf) -> Result<String, ()>{
+        match std::fs::read_to_string(fi.clone()) {
+            Ok(d) => Ok(d),
+            Err(_) => return Err(logger::error(&format!("File {} does not exist", fi.clone().display())))
         }
+    }
 
+    fn set_color(&self, svg: String, color: String) -> String {
+        svg.replace("fill=\"currentColor\"", &format!("fill=\"#{}\"", color))
+    }
+
+    fn get_out_file(&self, fi: PathBuf, sub_folder: String, args: crate::Args) -> PathBuf {
+        let mut fo = args.output_folder.clone();
+        fo.push(sub_folder);
+        fo.push(fi.clone().file_name().unwrap());
+        fo.set_extension("png");
+        fo
+    }
+
+    fn init_folders(folders: Vec<String>, args: Args) -> Result<()>{
+        for folder in folders.clone() {
+            std::fs::create_dir_all(args.output_folder.join(folder))?;
+        }
         Ok(())
     }
 }
