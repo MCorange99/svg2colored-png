@@ -52,9 +52,13 @@ impl Renderer {
     }
 
     pub fn render(&self, path_in: PathBuf, out_dir: PathBuf) -> Result<(), ()> {
-
-        if path_in.clone().extension().unwrap().to_str().unwrap() != "svg" {
-            return Err(util::logger::warning(format!("File '{}' is not of SVG type", path_in.to_str().unwrap())));
+        let ext = path_in.clone();
+        let ext = match ext.extension() {
+            Some(e) => e,
+            None => return Err(util::logger::warning(format!("File '{}' is not of SVG type", path_in.clone().to_str().unwrap()))),
+        };
+        if ext.to_str().unwrap() != "svg" {
+            return Err(util::logger::warning(format!("File '{}' is not of SVG type", path_in.clone().to_str().unwrap())));
         }
 
         let svg_data = match std::fs::read_to_string(path_in.clone()) {
@@ -88,7 +92,7 @@ impl Renderer {
             //fill="currentColor"
             let mut tree = match usvg::Tree::from_data(&svg_data_bytes, &opt) {
                 Ok(v) => Ok(v),
-                Err(_) => Err(util::logger::error(format!("Failed to parse '{}'", path_in.display())))
+                Err(_) => Err(util::logger::error(format!("Failed to parse '{}'", path_in.clone().display())))
             }?;
             tree.convert_text(&self.fontdb);
     

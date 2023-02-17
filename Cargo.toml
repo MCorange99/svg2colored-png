@@ -1,6 +1,6 @@
 [package]
 name = "svg2colored-png"
-version = "1.0.2"
+version = "1.0.3"
 edition = "2021"
 description = "An SVG to PNG converter"
 authors = ["MCorange <mcorangecodes@gmail.com>"]
