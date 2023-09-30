@@ -19,8 +19,8 @@ use std::path::PathBuf;
 use clap::Parser;
 use color_eyre::Result;
 
-mod util;
 mod renderer;
+
 
 #[derive(Parser, Debug, Clone)]
 #[command(name = "svg2colored-png")]
@@ -30,20 +30,17 @@ mod renderer;
 pub struct Args {
     /// Input folder with the SVG's
     #[arg(long, short)]
-    input_folder: PathBuf,
+    input: PathBuf,
 
     /// Output folder where the PNG's will be placed
     #[arg[long, short]]
-    output_folder: PathBuf,
+    output: PathBuf,
 
     /// Comma seperated colors that will be used in HEX Eg. 000000,ffffff
+    /// Can be like an object: black:000000,white:ffffff
     #[arg[long, short, default_value_t = String::from("0d6efd,6c757d,198754,0dcaf0,ffc107,dc3545,f8f9fa,212529,ffffff,000000")]]
     colors: String,
     
-    /// Comma seperated list of key value pairs of name:color Eg. black:000000,white:ffffff. This has priority over normal color list
-    #[arg[long, default_value_t = String::new()]]
-    colors_object: String,
-
     /// Width of the generated PNG's
     #[arg(long, default_value_t = 1024)]
     width: u32,
@@ -57,9 +54,11 @@ pub struct Args {
 
 
 fn main() -> Result<()> {
+    simple_logger::SimpleLogger::new().env().init()?;
+
     let args = Args::parse();
     
-    let r = renderer::Renderer::new(args.clone())?;
+    let mut r = renderer::Renderer::new(&args)?;
 
     println!(concat!(
         "svg2colored-png Copyright (C) 2023 MCorange<mcorangecodes@gmail.com>\n",
@@ -68,20 +67,46 @@ fn main() -> Result<()> {
         "under certain conditions.\n",
     ));
 
-    for e in std::fs::read_dir(args.input_folder.clone())? {
-        let entry = e?;
-        let path = entry.path();
-        if path.is_dir() {
-            util::logger::info(&format!("Skipping folder '{}' since folder walking is not yet implemented", path.clone().display()));
-        } else {
-            match r.render(path.clone(), args.clone()){
-                Ok(_) => util::logger::info(&format!("Successfully rendered all colors of '{}'", path.clone().display())),
-                Err(_) => util::logger::error(&format!("Failed to render '{}'", path.clone().display()))
-            };
+
+    let p = &args.input.clone();
+
+    if !p.exists() {
+        log::error!("The File/Folder {:?} doesnt exist!", p);
+        return Ok(());
+    }
+
+    if p.is_file() {
+        match r.render(&p, &args) {
+            Ok(_) => log::info!("Successfully rendered all colors of {p:?}"),
+            Err(e) => {
+                log::error!("Failed to render {p:?}: {}", e)
+            }
+        }
+    } else {
+        // let files = 
+        for f in std::fs::read_dir(p)? {
+            match f {
+                Ok(f) => {
+                    let f = f.path();
+                    if f.is_dir() {
+                        log::warn!("Skipping folder '{f:?}' since folder walking is not yet implemented");
+                        continue;
+                    }
+
+                    match r.render(&f, &args) {
+                        Ok(_) => log::info!("Successfully rendered all colors of {f:?}"),
+                        Err(e) => {
+                            log::error!("Failed to render {f:?}: {e:?}");
+                        }
+                    }
+                },
+                Err(e) => {
+                    log::error!("Failed to read file {p:?}: {e:?}");
+                },
+            }
         }
     }
-    
-
+    log::info!("Done! Rendered {} files.", r.count);
 
     Ok(())
 }
